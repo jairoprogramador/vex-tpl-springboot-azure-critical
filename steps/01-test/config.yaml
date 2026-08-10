@@ -1,0 +1,12 @@
+# El resultado de `mvn clean verify` depende del código, no del ambiente: este
+# step no declara ni produce una sola variable de ambiente.
+scope: project
+
+rules:
+  # Vigila el pipelinecode Y el código del proyecto: es lo que cambia el
+  # resultado de los tests.
+  - state_changed          # ≡ [pipeline, project]
+
+  # 30 días. Es el único step de esta plantilla que caduca, y es una DECISIÓN:
+  # el TTL global se retiró, así que los otros cuatro ya no caducan.
+  - max_age: 720h

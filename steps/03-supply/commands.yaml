@@ -1,0 +1,29 @@
+- name: "Init terraform"
+  description: "prepare the terraform working environment, downloading the providers and configuring the backend state"
+  cmd: "terraform init"
+  workdir: "./terraform"
+
+- name: "Plan terraform"
+  description: "generate a execution plan showing the changes that will be applied to the infrastructure"
+  cmd: "terraform plan -var-file=\"terraform.tfvars\" -out plan.out"
+  workdir: "./terraform"
+  templates:
+    - "terraform.tfvars"
+
+- name: "Apply terraform"
+  description: "execute the changes defined in the plan to provision or modify the infrastructure"
+  cmd: "terraform apply plan.out"
+  workdir: "./terraform"
+
+  outputs:
+    - name: "azure_resource_group_name"
+      description: "Return the name of the resource group created in Azure"
+      probe: azure_resource_group_name\s*=\s*"([^"]+)"
+
+    - name: "azure_kubernetes_cluster_fqdn"
+      description: "Return the FQDN of the AKS cluster to use as base of the ingress_host"
+      probe: azure_kubernetes_cluster_fqdn\s*=\s*"([^"]+)"
+
+    - name: "azure_kubernetes_cluster_name"
+      description: "Return the FQDN of the AKS cluster to use as base of the ingress_host"
+      probe: azure_kubernetes_cluster_name\s*=\s*"([^"]+)"

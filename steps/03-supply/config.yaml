@@ -1,0 +1,6 @@
+# El AKS y su grupo de recursos son de CADA AMBIENTE.
+scope: environment
+
+rules:
+  # Provisionar infraestructura no depende del código de la aplicación.
+  - state_changed: [pipeline]

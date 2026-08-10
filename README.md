@@ -21,7 +21,7 @@ Centralizamos toda la lógica de despliegue —desde la verificación de herrami
 ## ✨ Características que te Empoderan
 
 *   **🚀 Despliegues Agnósticos a la Tecnología:** Aunque este ejemplo se centra en Java y AKS, la estructura de `steps` y `commands.yaml` es universal. ¿Necesitas desplegar Node.js en AWS? ¿O un servicio de Python en Google Cloud? Simplemente adapta los comandos. El framework ya está aquí.
-*   **⚙️ Orquestación por Pasos (Steps):** El directorio `steps` divide el despliegue en fases lógicas y numeradas (`01-test`, `02-supply`, etc.). Cada paso es un subdirectorio autocontenido, lo que facilita la comprensión, el mantenimiento y la depuración del flujo.
+*   **⚙️ Orquestación por Pasos (Steps):** El directorio `steps` divide el despliegue en fases lógicas y numeradas (`01-test`, `02-acr`, `03-supply`, etc.). Cada paso es un subdirectorio autocontenido, lo que facilita la comprensión, el mantenimiento y la depuración del flujo.
 *   **📄 Comandos Declarativos (`commands.yaml`):** Dentro de cada paso, el archivo `commands.yaml` define las acciones a ejecutar. Cada comando es un objeto con:
     *   `name`: Un verbo en infinitivo que describe la acción.
     *   `description`: Una explicación clara de lo que hace el comando.
@@ -45,7 +45,7 @@ Centralizamos toda la lógica de despliegue —desde la verificación de herrami
     *   Valida las salidas con `probe`.
     *   Captura nuevas variables desde los `outputs`.
     *   Procesa las plantillas (`templates`) si se especifican.
-    *   Continúa con `02-supply`, `03-package`, y así sucesivamente, pasando las variables generadas entre pasos.
+    *   Continúa con `02-acr`, `03-supply`, `04-package`, y así sucesivamente, pasando las variables generadas entre pasos.
 4.  **Reporta el Resultado:** Informa al usuario si el despliegue fue un éxito o si falló en algún punto, proporcionando contexto claro.
 
 ## Empieza a Construir tu Propia Plantilla

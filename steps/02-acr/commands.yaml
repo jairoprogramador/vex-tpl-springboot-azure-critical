@@ -1,0 +1,35 @@
+# Este step provisiona el registro de contenedores, que es UNO PARA TODO EL
+# PROYECTO: por eso declara `scope: project` en su `config.yaml`.
+#
+# Que el ACR no se duplique lo garantiza ahora el motor —el estado del step vive
+# en el ámbito de proyecto, no en el del ambiente—. El backend de terraform
+# tiene que acompañarlo: la clave del estado remoto de este step NO puede llevar
+# `${var.environment}`, a diferencia de la de `03-supply`. Si se lo añadiera,
+# terraform crearía un ACR por ambiente mientras el motor sigue compartiendo el
+# estado del step, y el desajuste se vería en el primer despliegue.
+- name: "Init terraform shared"
+  description: "prepare the terraform working for the shared resources, downloading the providers and configuring the backend state"
+  cmd: "terraform init"
+  workdir: "./terraform"
+
+- name: "Plan terraform shared"
+  description: "generate a execution plan showing the changes that will be applied to the shared resources"
+  cmd: "terraform plan -out plan.out"
+  workdir: "./terraform"
+
+- name: "Apply terraform shared"
+  description: "execute the changes defined in the plan to provision or modify the shared resources"
+  cmd: "terraform apply plan.out"
+  workdir: "./terraform"
+  outputs:
+    - name: "azure_container_registry_rg"
+      description: "Return the name of the Resource Group for the Azure Container Registry (ACR)"
+      probe: azure_container_registry_rg\s*=\s*"([^"]+)"
+
+    - name: "azure_container_registry_name"
+      description: "Return the name of the Azure Container Registry (ACR)"
+      probe: azure_container_registry_name\s*=\s*"([^"]+)"
+
+    - name: "azure_container_registry_login_server"
+      description: "Return the domain of the login server of the Azure Container Registry"
+      probe: azure_container_registry_login_server\s*=\s*"([^"]+)"

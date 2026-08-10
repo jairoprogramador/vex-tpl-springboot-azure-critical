@@ -1,0 +1,9 @@
+# El registro de contenedores es UNO PARA TODO EL PROYECTO: su estado se guarda
+# —y se lee— en el ámbito de proyecto, visible desde todos los ambientes.
+scope: project
+
+rules:
+  # Provisionar el registro no depende de que cambie una clase Java: sólo mira
+  # el pipelinecode. Y no declara `max_age`: un registro de contenedores no se
+  # vuelve obsoleto por el paso del tiempo.
+  - state_changed: [pipeline]
