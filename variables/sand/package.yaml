@@ -1,0 +1,20 @@
+# Este archivo no existía: hasta ahora `04-package` no declaraba ninguna variable
+# propia y la del ACR le llegaba por nombre desde el mapa acumulado, sin que nadie
+# hubiera dicho de dónde venía.
+#
+# Se llama `package.yaml` y no `04-package.yaml` porque el prefijo de orden no
+# forma parte del nombre del step: por eso `supply.yaml` y `deploy.yaml`
+# sobrevivieron sin tocarse a que sus steps se renumeraran.
+#
+# La produce `02-acr`, que es de ámbito de PROYECTO: la declaración deja escrito
+# que el registro de contenedores es uno para todo el proyecto y no uno por
+# ambiente.
+#
+# Va UNA sola, a diferencia del template `basic`: aquí `docker/Dockerfile` no está
+# declarado en `templates:` y su `FROM` va a Docker Hub, así que este step no
+# consume `azure_container_registry_login_server`.
+- name: "azure_container_registry_name"
+  description: "name of the ACR, consumed by `az acr build --registry`"
+  resolve: step-output
+  from: "02-acr"
+  key: "azure_container_registry_name"
