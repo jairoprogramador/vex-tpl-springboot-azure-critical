@@ -6,82 +6,63 @@ variable "app_environment" {
 
 variable "app_project_name" {
   description = "Define the name of the project"
-  type = string
+  type        = string
   validation {
-    condition = length(var.app_project_name) > 0
+    condition     = length(var.app_project_name) > 0
     error_message = "The project name cannot be empty"
   }
 }
 
 variable "app_team_name" {
   description = "Define the name of the team responsible for the project"
-  type = string
+  type        = string
   validation {
-    condition = length(var.app_team_name) > 0
+    condition     = length(var.app_team_name) > 0
     error_message = "The team name cannot be empty"
   }
 }
 
-variable "azure_container_registry_rg" {
-  description = "Define the name of the Resource Group for the Azure Container Registry"
+variable "azure_resource_group_name" {
+  description = "Name of the workload resource group created by the bootstrap (VEX_AZURE_RESOURCE_GROUP)"
   type        = string
-  validation {
-    condition = length(var.azure_container_registry_rg) > 0
-    error_message = "The container registry resource group name cannot be empty"
-  }
 }
 
-variable "azure_container_registry_name" {
-  description = "Define the name of the Azure Container Registry"
+variable "azure_node_resource_group_name" {
+  description = "Name that AKS gives to its node resource group, decided by the bootstrap (VEX_BOOTSTRAP_NODE_RESOURCE_GROUP)"
   type        = string
-  validation {
-    condition = length(var.azure_container_registry_name) > 0
-    error_message = "The container registry name cannot be empty"
-  }
 }
 
-variable "azure_container_registry_login_server" {
-  description = "Define the domain of the login server of the Azure Container Registry"
+variable "aks_identity_id" {
+  description = "Resource id of the control plane identity created by the bootstrap (VEX_BOOTSTRAP_AKS_IDENTITY_ID)"
   type        = string
-  validation {
-    condition = length(var.azure_container_registry_login_server) > 0
-    error_message = "The container registry login server cannot be empty"
-  }
+}
+
+variable "kubelet_identity_id" {
+  description = "Resource id of the kubelet identity created by the bootstrap (VEX_AZURE_PULL_IDENTITY_ID)"
+  type        = string
+}
+
+variable "kubelet_client_id" {
+  description = "Client id of the kubelet identity (VEX_AZURE_PULL_CLIENT_ID)"
+  type        = string
+}
+
+variable "kubelet_object_id" {
+  description = "Object (principal) id of the kubelet identity (VEX_BOOTSTRAP_PULL_PRINCIPAL_ID)"
+  type        = string
 }
 
 /*VARIABLES OPCIONALES*/
 variable "azure_resource_tags" {
   description = "Define the common tags applied to all Azure resources"
   type        = map(string)
-  default     = {
-    owner        = "fastdeploy@fastdeploy.com"
-    cost_center  = "fastdeploy"
-    compliance   = "RGPD is example"
-    create_by    = "fastdeploy"
-    lifecycle    = "ephemeral"
+  default = {
+    owner       = "fastdeploy@fastdeploy.com"
+    cost_center = "fastdeploy"
+    compliance  = "RGPD is example"
+    create_by   = "fastdeploy"
+    lifecycle   = "ephemeral"
   }
-}
-
-variable "azure_location" {
-  description = "Define the region of Azure where the resources will be deployed"
-  type        = string
-  default     = "eastus"
-  validation {
-    condition     = can(regex("^[a-z0-9-]+$", var.azure_location))
-    error_message = "The location must contain only lowercase letters, numbers and hyphens."
-  }
-}
-
-variable "azure_resource_group_name" {
-  description = "Define the name of the Azure resource group"
-  type        = string
-  default     = "vexrgn"
-}
-
-variable "azure_ad_group_name" {
-  description = "Define the name of the Group in Azure Entra ID"
-  type        = string
-  default     = "vexadg"
 }
 
 variable "azure_kubernetes_cluster_name" {

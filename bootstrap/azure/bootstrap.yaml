@@ -1,0 +1,17 @@
+# Configuración inicial que este pipeline necesita en la nube. El motor no lee
+# esta carpeta: la aplica `vex bootstrap <ambiente>` con la sesión de quien la
+# acepta, que debe tener permisos para crear lo que declara `main.bicep`.
+# Lo que se despliega es `main.json` (el compilado); la credencial federada de
+# la identidad de despliegue la crea vex después, nunca la plantilla.
+contract: azure/v1
+template: main.json
+providers:
+  - Microsoft.ContainerService
+  - Microsoft.ContainerRegistry
+  - Microsoft.Compute
+  - Microsoft.Network
+  - Microsoft.PolicyInsights
+  - Microsoft.Storage
+  - Microsoft.ManagedIdentity
+  - Microsoft.Consumption
+cloud_steps: [acr, supply, package, deploy]

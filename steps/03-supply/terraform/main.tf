@@ -1,24 +1,10 @@
-resource "azurerm_resource_group" "main" {
-  name     = "${local.names_rm.resource_group}"
-  location = var.azure_location
-  tags     = local.tags
-}
-
-resource "azuread_group" "main" {
-  display_name     = "${local.names_ad.user_group}"
-  security_enabled = true
-  members = [
-    data.azuread_client_config.current.object_id
-  ]
-}
-
 resource "azurerm_kubernetes_cluster" "main" {
-  name                = "${local.names_rm.kubernetes_cluster}"
-  location            = azurerm_resource_group.main.location
-  resource_group_name = azurerm_resource_group.main.name
-  dns_prefix          = "${local.prefix.app_dns_prefix_aks}"
+  name                = local.kubernetes_cluster
+  location            = data.azurerm_resource_group.main.location
+  resource_group_name = data.azurerm_resource_group.main.name
+  dns_prefix          = local.dns_prefix
 
-  node_resource_group = "${azurerm_resource_group.main.name}nodes"
+  node_resource_group = var.azure_node_resource_group_name
 
   default_node_pool {
     name       = "default"
@@ -26,30 +12,29 @@ resource "azurerm_kubernetes_cluster" "main" {
     vm_size    = var.azure_kubernetes_cluster_vm_size
   }
 
+  # Las dos identidades las crea el bootstrap, con sus permisos ya asignados:
+  # este paso no asigna ningún rol.
   identity {
-    type = "SystemAssigned"
+    type         = "UserAssigned"
+    identity_ids = [var.aks_identity_id]
+  }
+
+  # Con ella los nodos descargan las imágenes: tiene AcrPull sobre el grupo de carga, donde está el registro.
+  kubelet_identity {
+    user_assigned_identity_id = var.kubelet_identity_id
+    client_id                 = var.kubelet_client_id
+    object_id                 = var.kubelet_object_id
   }
 
   local_account_disabled = true
-  azure_policy_enabled = true
+  azure_policy_enabled   = true
 
+  # Quién entra a la API de Kubernetes lo deciden los roles de Azure; el de la
+  # identidad de despliegue lo asigna el bootstrap.
   azure_active_directory_role_based_access_control {
-    tenant_id = data.azuread_client_config.current.tenant_id
+    tenant_id          = data.azurerm_client_config.current.tenant_id
     azure_rbac_enabled = true
-    admin_group_object_ids = [azuread_group.main.object_id]
   }
 
   tags = local.tags
-}
-
-resource "azurerm_role_assignment" "sp_aks_admin_role" {
-  scope                = azurerm_kubernetes_cluster.main.id
-  role_definition_name = "Azure Kubernetes Service Cluster Admin Role"
-  principal_id         = data.azuread_client_config.current.object_id
-}
-
-resource "azurerm_role_assignment" "aks_acr_pull_permissions" {
-  scope                = data.azurerm_container_registry.main.id
-  role_definition_name = "AcrPull"
-  principal_id         = azurerm_kubernetes_cluster.main.kubelet_identity[0].object_id
 }

@@ -1,15 +1,15 @@
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: ${var.k8s_project_instance}
-  namespace: ${var.k8s_namespace}
+  name: "${var.k8s_project_instance}"
+  namespace: "${var.k8s_namespace}"
   labels:
-    app.kubernetes.io/name: ${var.project_name}
-    app.kubernetes.io/instance: ${var.k8s_project_instance}
-    app.kubernetes.io/version: ${var.project_revision}
-    app.kubernetes.io/part-of: ${var.project_organization}
-    app.kubernetes.io/managed-by: ${var.tool_name}
-    environment: ${var.environment}
+    app.kubernetes.io/name: "${var.project_name}"
+    app.kubernetes.io/instance: "${var.k8s_project_instance}"
+    app.kubernetes.io/version: "${var.project_version}"
+    app.kubernetes.io/part-of: "${var.project_organization}"
+    app.kubernetes.io/managed-by: "${var.tool_name}"
+    environment: "${var.environment}"
 
 spec:
   replicas: ${var.k8s_replicas}
@@ -21,19 +21,20 @@ spec:
       maxSurge: ${var.k8s_max_surge}
   selector:
     matchLabels:
-      app.kubernetes.io/name: ${var.project_name}
-      app.kubernetes.io/part-of: ${var.project_organization}
-      environment: ${var.environment}
+      app.kubernetes.io/name: "${var.project_name}"
+      app.kubernetes.io/part-of: "${var.project_organization}"
+      environment: "${var.environment}"
   template:
     metadata:
       labels:
-        app.kubernetes.io/name: ${var.project_name}
-        app.kubernetes.io/part-of: ${var.project_organization}
-        environment: ${var.environment}
+        app.kubernetes.io/name: "${var.project_name}"
+        app.kubernetes.io/part-of: "${var.project_organization}"
+        environment: "${var.environment}"
     spec:
       containers:
-      - name: ${var.k8s_project_instance}
-        image: ${var.azure_container_registry_login_server}/${var.project_name}:${var.project_revision}
+      - name: "${var.k8s_project_instance}"
+        # Por digest y no por etiqueta: la etiqueta es mutable, el digest no.
+        image: "${var.azure_container_registry_login_server}/${var.project_name}@${var.image_digest}"
         ports:
         - containerPort: ${var.container_port}
         resources:

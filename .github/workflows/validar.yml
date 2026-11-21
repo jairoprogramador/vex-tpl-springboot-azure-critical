@@ -1,0 +1,75 @@
+name: validar
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+env:
+  # Versión de Bicep con la que se compila bootstrap/azure/main.json.
+  BICEP_VERSION: v0.49.2
+
+jobs:
+  forma:
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+
+      - name: Todos los YAML se leen
+        run: |
+          set -euo pipefail
+          find . -path ./.git -prune -o \( -name '*.yaml' -o -name '*.yml' \) -print0 |
+            xargs -0 -n1 yq -e 'true' >/dev/null
+
+      - name: bootstrap/azure trae el manifiesto, la fuente y el compilado
+        working-directory: bootstrap/azure
+        run: |
+          set -euo pipefail
+          for archivo in bootstrap.yaml main.bicep main.json; do test -f "$archivo"; done
+          # Además de esos tres solo caben los módulos de main.bicep.
+          test -z "$(find . -mindepth 1 ! -name bootstrap.yaml ! -name main.json ! -name '*.bicep' -print -quit)"
+
+      - name: El manifiesto cumple el contrato azure/v1
+        run: |
+          yq -e '
+            .contract == "azure/v1" and .template == "main.json" and
+            (.cloud_steps | length > 0) and
+            ((keys - ["contract", "template", "providers", "cloud_steps"]) | length == 0)
+          ' bootstrap/azure/bootstrap.yaml
+
+      - name: main.json corresponde a main.bicep
+        working-directory: bootstrap/azure
+        run: |
+          set -euo pipefail
+          az bicep install --version "$BICEP_VERSION"
+          az bicep build --file main.bicep --outfile "$RUNNER_TEMP/main.json"
+          # El bloque del generador (versión y hash) no forma parte de la plantilla.
+          sin_generador='del(.. | objects | select((.metadata | type) == "object") | .metadata._generator)'
+          diff -u <(jq -S "$sin_generador" main.json) <(jq -S "$sin_generador" "$RUNNER_TEMP/main.json")
+
+      - name: Reglas estáticas de la plantilla (S1 a S3)
+        working-directory: bootstrap/azure
+        run: |
+          set -euo pipefail
+          # S1: la credencial federada la crea vex, nunca la plantilla.
+          jq -e '[.. | objects | .type? | strings | select(test("federatedIdentityCredentials$"; "i"))] | length == 0' main.json
+          # S2: sin scripts de despliegue (código arbitrario).
+          jq -e '[.. | objects | .type? | strings | select(test("^Microsoft\\.Resources/deploymentScripts$"; "i"))] | length == 0' main.json
+          # S3: sin plantillas remotas.
+          jq -e '[.. | objects | select(has("templateLink"))] | length == 0' main.json
+
+      - name: Sin secretos en el repositorio
+        run: |
+          set -euo pipefail
+          # Los corchetes evitan que este mismo archivo coincida con el patrón.
+          ! grep -rnE 'CLIENT_SECRE[T]|passwor[d]' --exclude-dir=.git .
+
+      - name: Sin Graph ni asignaciones de rol en los pasos
+        run: |
+          set -euo pipefail
+          ! grep -rnE '"azuread(_[a-z_]+)?"|hashicorp/azuread|azurerm_role_assignment' steps/

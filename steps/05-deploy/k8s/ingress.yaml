@@ -1,18 +1,18 @@
 apiVersion: networking.k8s.io/v1
 kind: Ingress
 metadata:
-  name: ${var.k8s_project_instance}-ingress
-  namespace: ${var.k8s_namespace}
+  name: "${var.k8s_project_instance}-ingress"
+  namespace: "${var.k8s_namespace}"
   labels:
-    app.kubernetes.io/name: ${var.project_name}
-    app.kubernetes.io/instance: ${var.k8s_project_instance}
-    app.kubernetes.io/version: ${var.project_revision}
-    app.kubernetes.io/part-of: ${var.project_organization}
-    app.kubernetes.io/managed-by: ${var.tool_name}
-    environment: ${var.environment}
+    app.kubernetes.io/name: "${var.project_name}"
+    app.kubernetes.io/instance: "${var.k8s_project_instance}"
+    app.kubernetes.io/version: "${var.project_version}"
+    app.kubernetes.io/part-of: "${var.project_organization}"
+    app.kubernetes.io/managed-by: "${var.tool_name}"
+    environment: "${var.environment}"
   annotations:
     # TLS/SSL Configuration
-    cert-manager.io/cluster-issuer: ${var.ingress_cluster_issuer}
+    cert-manager.io/cluster-issuer: "${var.ingress_cluster_issuer}"
     nginx.ingress.kubernetes.io/ssl-redirect: "true"
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
 
@@ -37,21 +37,21 @@ metadata:
     nginx.ingress.kubernetes.io/proxy-connect-timeout: "${var.ingress_proxy_connect_timeout}"
     
     # Health checks y monitoring
-    nginx.ingress.kubernetes.io/upstream-vhost: ${var.k8s_ingress_host}
+    nginx.ingress.kubernetes.io/upstream-vhost: "${var.azure_kubernetes_cluster_fqdn}"
 spec:
-  ingressClassName: ${var.ingress_class_name}
+  ingressClassName: "${var.ingress_class_name}"
   tls:
   - hosts:
-    - ${var.k8s_ingress_host}
-    secretName: ${var.k8s_project_instance}-tls
+    - "${var.azure_kubernetes_cluster_fqdn}"
+    secretName: "${var.k8s_project_instance}-tls"
   rules:
-  - host: ${var.k8s_ingress_host}
+  - host: "${var.azure_kubernetes_cluster_fqdn}"
     http:
       paths:
       - path: /
         pathType: Prefix
         backend:
           service:
-            name: ${var.k8s_project_instance}-service
+            name: "${var.k8s_project_instance}-service"
             port:
               number: ${var.k8s_service_port}

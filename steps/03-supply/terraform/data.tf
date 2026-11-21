@@ -1,6 +1,6 @@
-data "azuread_client_config" "current" {}
+data "azurerm_client_config" "current" {}
 
-data "azurerm_container_registry" "main" {
-  name                = var.azure_container_registry_name
-  resource_group_name = var.azure_container_registry_rg
+# Lo crea el bootstrap: la identidad de despliegue no puede crear grupos de recursos.
+data "azurerm_resource_group" "main" {
+  name = var.azure_resource_group_name
 }

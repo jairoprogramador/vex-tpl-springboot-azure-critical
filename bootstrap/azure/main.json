@@ -1,0 +1,531 @@
+{
+  "$schema": "https://schema.management.azure.com/schemas/2018-05-01/subscriptionDeploymentTemplate.json#",
+  "contentVersion": "1.0.0.0",
+  "metadata": {
+    "_generator": {
+      "name": "bicep",
+      "version": "0.49.2.45890",
+      "templateHash": "7902831158281622338"
+    }
+  },
+  "parameters": {
+    "projectId": {
+      "type": "string",
+      "metadata": {
+        "description": "Id del proyecto en vex (uuid)."
+      }
+    },
+    "projectSlug": {
+      "type": "string",
+      "metadata": {
+        "description": "Nombre corto del proyecto calculado por vex: [a-z0-9-], hasta 20 caracteres."
+      }
+    },
+    "environment": {
+      "type": "string",
+      "metadata": {
+        "description": "Ambiente al que pertenece esta conexión (sand, stag, prod…)."
+      }
+    },
+    "location": {
+      "type": "string",
+      "metadata": {
+        "description": "Región de los grupos de recursos y de todo lo que se crea en ellos."
+      }
+    },
+    "budgetAmount": {
+      "type": "int",
+      "defaultValue": 0,
+      "minValue": 0,
+      "metadata": {
+        "description": "Presupuesto mensual del ambiente (grupo de carga y grupo de nodos), en la moneda de la suscripción. 0 no crea presupuesto."
+      }
+    },
+    "budgetEmails": {
+      "type": "array",
+      "defaultValue": [],
+      "metadata": {
+        "description": "Correos que reciben el aviso al llegar al 80 %. Azure exige al menos uno si hay presupuesto."
+      }
+    },
+    "budgetStartDate": {
+      "type": "string",
+      "defaultValue": "[utcNow('yyyy-MM-01')]",
+      "metadata": {
+        "description": "Primer día del mes en curso: Azure no admite presupuestos mensuales que empiecen en un mes anterior."
+      }
+    }
+  },
+  "variables": {
+    "baseName": "[format('vex-{0}-{1}', parameters('projectSlug'), parameters('environment'))]",
+    "tags": {
+      "vex:managed": "true",
+      "vex:project": "[parameters('projectId')]",
+      "vex:environment": "[parameters('environment')]"
+    },
+    "nodeGroupName": "[format('rg-{0}-nodes', variables('baseName'))]"
+  },
+  "resources": [
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2024-03-01",
+      "name": "[format('rg-{0}-id', variables('baseName'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]"
+    },
+    {
+      "type": "Microsoft.Resources/resourceGroups",
+      "apiVersion": "2024-03-01",
+      "name": "[format('rg-{0}', variables('baseName'))]",
+      "location": "[parameters('location')]",
+      "tags": "[variables('tags')]"
+    },
+    {
+      "condition": "[greater(parameters('budgetAmount'), 0)]",
+      "type": "Microsoft.Consumption/budgets",
+      "apiVersion": "2023-05-01",
+      "name": "[variables('baseName')]",
+      "properties": {
+        "category": "Cost",
+        "amount": "[parameters('budgetAmount')]",
+        "timeGrain": "Monthly",
+        "timePeriod": {
+          "startDate": "[parameters('budgetStartDate')]"
+        },
+        "filter": {
+          "dimensions": {
+            "name": "ResourceGroupName",
+            "operator": "In",
+            "values": [
+              "[format('rg-{0}', variables('baseName'))]",
+              "[variables('nodeGroupName')]"
+            ]
+          }
+        },
+        "notifications": {
+          "real80": {
+            "enabled": true,
+            "operator": "GreaterThan",
+            "threshold": 80,
+            "thresholdType": "Actual",
+            "contactEmails": "[parameters('budgetEmails')]"
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}', variables('baseName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vex-bootstrap-identidades",
+      "resourceGroup": "[format('rg-{0}-id', variables('baseName'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "baseName": {
+            "value": "[variables('baseName')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.49.2.45890",
+              "templateHash": "6957429182008196778"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "baseName": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object"
+            }
+          },
+          "variables": {
+            "managedIdentityOperator": "f1a07417-d97a-45cb-824c-7a7467783830",
+            "managedIdentityOperatorId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('managedIdentityOperator'))]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('id-{0}-deploy', parameters('baseName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('id-{0}-aks', parameters('baseName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "type": "Microsoft.ManagedIdentity/userAssignedIdentities",
+              "apiVersion": "2023-01-31",
+              "name": "[format('id-{0}-kubelet', parameters('baseName'))]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]"
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-aks', parameters('baseName')))]",
+              "name": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-aks', parameters('baseName'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-deploy', parameters('baseName'))), variables('managedIdentityOperator'))]",
+              "properties": {
+                "roleDefinitionId": "[variables('managedIdentityOperatorId')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-deploy', parameters('baseName'))), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-aks', parameters('baseName')))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-deploy', parameters('baseName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-kubelet', parameters('baseName')))]",
+              "name": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-kubelet', parameters('baseName'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-deploy', parameters('baseName'))), variables('managedIdentityOperator'))]",
+              "properties": {
+                "roleDefinitionId": "[variables('managedIdentityOperatorId')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-deploy', parameters('baseName'))), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-deploy', parameters('baseName')))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-kubelet', parameters('baseName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-kubelet', parameters('baseName')))]",
+              "name": "[guid(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-kubelet', parameters('baseName'))), resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-aks', parameters('baseName'))), variables('managedIdentityOperator'))]",
+              "properties": {
+                "roleDefinitionId": "[variables('managedIdentityOperatorId')]",
+                "principalId": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-aks', parameters('baseName'))), '2023-01-31').principalId]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-aks', parameters('baseName')))]",
+                "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-kubelet', parameters('baseName')))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/locks",
+              "apiVersion": "2020-05-01",
+              "name": "vex-protect-identities",
+              "properties": {
+                "level": "CanNotDelete",
+                "notes": "Identidades del pipeline de vex: no borrar a mano."
+              }
+            }
+          ],
+          "outputs": {
+            "deployIdentityId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-deploy', parameters('baseName')))]"
+            },
+            "deployClientId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-deploy', parameters('baseName'))), '2023-01-31').clientId]"
+            },
+            "deployPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-deploy', parameters('baseName'))), '2023-01-31').principalId]"
+            },
+            "aksIdentityId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-aks', parameters('baseName')))]"
+            },
+            "kubeletIdentityId": {
+              "type": "string",
+              "value": "[resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-kubelet', parameters('baseName')))]"
+            },
+            "kubeletClientId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-kubelet', parameters('baseName'))), '2023-01-31').clientId]"
+            },
+            "kubeletPrincipalId": {
+              "type": "string",
+              "value": "[reference(resourceId('Microsoft.ManagedIdentity/userAssignedIdentities', format('id-{0}-kubelet', parameters('baseName'))), '2023-01-31').principalId]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}-id', variables('baseName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vex-bootstrap-carga",
+      "resourceGroup": "[format('rg-{0}', variables('baseName'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "deployPrincipalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-identidades'), '2025-04-01').outputs.deployPrincipalId.value]"
+          },
+          "kubeletPrincipalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-identidades'), '2025-04-01').outputs.kubeletPrincipalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.49.2.45890",
+              "templateHash": "15976002747704095633"
+            }
+          },
+          "parameters": {
+            "deployPrincipalId": {
+              "type": "string"
+            },
+            "kubeletPrincipalId": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "contributor": "b24988ac-6180-42a0-ab88-20f7382dd24c",
+            "aksRbacClusterAdmin": "b1ff04bb-8a4e-4dc4-8eb5-8693973ce19b",
+            "acrPull": "7f951dda-4ed3-4680-a7ca-43fe172d538d"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(resourceGroup().id, parameters('deployPrincipalId'), variables('contributor'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('contributor'))]",
+                "principalId": "[parameters('deployPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(resourceGroup().id, parameters('deployPrincipalId'), variables('aksRbacClusterAdmin'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('aksRbacClusterAdmin'))]",
+                "principalId": "[parameters('deployPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "name": "[guid(resourceGroup().id, parameters('kubeletPrincipalId'), variables('acrPull'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('acrPull'))]",
+                "principalId": "[parameters('kubeletPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              }
+            }
+          ]
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-identidades')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}', variables('baseName')))]"
+      ]
+    },
+    {
+      "type": "Microsoft.Resources/deployments",
+      "apiVersion": "2025-04-01",
+      "name": "vex-bootstrap-estado",
+      "resourceGroup": "[format('rg-{0}-id', variables('baseName'))]",
+      "properties": {
+        "expressionEvaluationOptions": {
+          "scope": "inner"
+        },
+        "mode": "Incremental",
+        "parameters": {
+          "location": {
+            "value": "[parameters('location')]"
+          },
+          "baseName": {
+            "value": "[variables('baseName')]"
+          },
+          "tags": {
+            "value": "[variables('tags')]"
+          },
+          "deployPrincipalId": {
+            "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-identidades'), '2025-04-01').outputs.deployPrincipalId.value]"
+          }
+        },
+        "template": {
+          "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+          "contentVersion": "1.0.0.0",
+          "metadata": {
+            "_generator": {
+              "name": "bicep",
+              "version": "0.49.2.45890",
+              "templateHash": "3818583474019180943"
+            }
+          },
+          "parameters": {
+            "location": {
+              "type": "string"
+            },
+            "baseName": {
+              "type": "string"
+            },
+            "tags": {
+              "type": "object"
+            },
+            "deployPrincipalId": {
+              "type": "string"
+            }
+          },
+          "variables": {
+            "storageBlobDataContributor": "ba92f5b4-2d11-453d-a403-e96b0029c9fe",
+            "stateContainerName": "tfstate",
+            "stateAccountName": "[take(format('st{0}{1}', uniqueString(resourceGroup().id), toLower(replace(parameters('baseName'), '-', ''))), 24)]"
+          },
+          "resources": [
+            {
+              "type": "Microsoft.Storage/storageAccounts",
+              "apiVersion": "2023-05-01",
+              "name": "[variables('stateAccountName')]",
+              "location": "[parameters('location')]",
+              "tags": "[parameters('tags')]",
+              "sku": {
+                "name": "Standard_LRS"
+              },
+              "kind": "StorageV2",
+              "properties": {
+                "allowSharedKeyAccess": false,
+                "allowBlobPublicAccess": false,
+                "minimumTlsVersion": "TLS1_2",
+                "supportsHttpsTrafficOnly": true
+              }
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}', variables('stateAccountName'), 'default')]",
+              "properties": {
+                "isVersioningEnabled": true
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', variables('stateAccountName'))]"
+              ]
+            },
+            {
+              "type": "Microsoft.Storage/storageAccounts/blobServices/containers",
+              "apiVersion": "2023-05-01",
+              "name": "[format('{0}/{1}/{2}', variables('stateAccountName'), 'default', variables('stateContainerName'))]",
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices', variables('stateAccountName'), 'default')]"
+              ]
+            },
+            {
+              "type": "Microsoft.Authorization/roleAssignments",
+              "apiVersion": "2022-04-01",
+              "scope": "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('stateAccountName'), 'default', variables('stateContainerName'))]",
+              "name": "[guid(resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('stateAccountName'), 'default', variables('stateContainerName')), parameters('deployPrincipalId'), variables('storageBlobDataContributor'))]",
+              "properties": {
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', variables('storageBlobDataContributor'))]",
+                "principalId": "[parameters('deployPrincipalId')]",
+                "principalType": "ServicePrincipal"
+              },
+              "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts/blobServices/containers', variables('stateAccountName'), 'default', variables('stateContainerName'))]"
+              ]
+            }
+          ],
+          "outputs": {
+            "stateAccount": {
+              "type": "string",
+              "value": "[variables('stateAccountName')]"
+            },
+            "stateContainer": {
+              "type": "string",
+              "value": "[variables('stateContainerName')]"
+            }
+          }
+        }
+      },
+      "dependsOn": [
+        "[extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-identidades')]",
+        "[subscriptionResourceId('Microsoft.Resources/resourceGroups', format('rg-{0}-id', variables('baseName')))]"
+      ]
+    }
+  ],
+  "outputs": {
+    "deployIdentityId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-identidades'), '2025-04-01').outputs.deployIdentityId.value]"
+    },
+    "deployClientId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-identidades'), '2025-04-01').outputs.deployClientId.value]"
+    },
+    "deployPrincipalId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-identidades'), '2025-04-01').outputs.deployPrincipalId.value]"
+    },
+    "resourceGroup": {
+      "type": "string",
+      "value": "[format('rg-{0}', variables('baseName'))]"
+    },
+    "identityResourceGroup": {
+      "type": "string",
+      "value": "[format('rg-{0}-id', variables('baseName'))]"
+    },
+    "pullIdentityId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-identidades'), '2025-04-01').outputs.kubeletIdentityId.value]"
+    },
+    "pullClientId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-identidades'), '2025-04-01').outputs.kubeletClientId.value]"
+    },
+    "stateAccount": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-estado'), '2025-04-01').outputs.stateAccount.value]"
+    },
+    "stateContainer": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-estado'), '2025-04-01').outputs.stateContainer.value]"
+    },
+    "pullPrincipalId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-identidades'), '2025-04-01').outputs.kubeletPrincipalId.value]"
+    },
+    "aksIdentityId": {
+      "type": "string",
+      "value": "[reference(extensionResourceId(format('/subscriptions/{0}/resourceGroups/{1}', subscription().subscriptionId, format('rg-{0}-id', variables('baseName'))), 'Microsoft.Resources/deployments', 'vex-bootstrap-identidades'), '2025-04-01').outputs.aksIdentityId.value]"
+    },
+    "nodeResourceGroup": {
+      "type": "string",
+      "value": "[variables('nodeGroupName')]"
+    }
+  }
+}

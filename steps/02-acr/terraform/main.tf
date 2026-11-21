@@ -1,30 +1,14 @@
-resource "azurerm_resource_group" "main" {
-  name     = "${local.names.app_rm_acr_resource_group}"
-  location = var.azure_location
-  tags     = var.azure_resource_tags
+locals {
+  # El nombre es global en Azure. Sale del id del grupo de carga: es estable
+  # mientras exista el grupo, también si se pierde el estado de terraform.
+  registry_name = "${var.azure_acr_name}${substr(sha256(data.azurerm_resource_group.main.id), 0, 16)}"
 }
 
 resource "azurerm_container_registry" "main" {
-  name                = "${local.names.app_rm_acr_name}"
-  resource_group_name = azurerm_resource_group.main.name
-  location            = azurerm_resource_group.main.location
+  name                = local.registry_name
+  resource_group_name = data.azurerm_resource_group.main.name
+  location            = data.azurerm_resource_group.main.location
   sku                 = "Basic"
   admin_enabled       = false
   tags                = var.azure_resource_tags
-  
-  lifecycle {
-    ignore_changes = [name] 
-  }
-}
-
-resource "azurerm_role_assignment" "acr_push_permissions" {
-  scope                = azurerm_container_registry.main.id
-  role_definition_name = "AcrPush"
-  principal_id         = data.azuread_client_config.current.object_id
-}
-
-resource "azurerm_role_assignment" "acr_pull_permissions" {
-  scope                = azurerm_container_registry.main.id
-  role_definition_name = "AcrPull"
-  principal_id         = data.azuread_client_config.current.object_id
 }

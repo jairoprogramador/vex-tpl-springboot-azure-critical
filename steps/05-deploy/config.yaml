@@ -1,6 +1,0 @@
-scope: environment
-
-rules:
-  # Lo que se despliega es la imagen del código: vigila el proyecto además del
-  # pipelinecode.
-  - state_changed          # ≡ [pipeline, project]

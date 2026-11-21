@@ -1,9 +1,0 @@
-# Candidato a `scope: project` —la imagen se construye desde el código, no desde
-# el ambiente—, y se deja en `environment` a propósito: depende de si la
-# etiqueta de la imagen lleva el ambiente. Cambiarlo es una línea.
-scope: environment
-
-rules:
-  # La imagen se construye desde el código: vigila el proyecto además del
-  # pipelinecode.
-  - state_changed          # ≡ [pipeline, project]

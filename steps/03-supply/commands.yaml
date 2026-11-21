@@ -1,29 +1,44 @@
-- name: "Init terraform"
-  description: "prepare the terraform working environment, downloading the providers and configuring the backend state"
-  cmd: "terraform init"
-  workdir: "./terraform"
+- name: login azure
+  description: espera el token de la CLI e inicia sesion en az
+  cmd: vex-azure-login
 
-- name: "Plan terraform"
-  description: "generate a execution plan showing the changes that will be applied to the infrastructure"
-  cmd: "terraform plan -var-file=\"terraform.tfvars\" -out plan.out"
-  workdir: "./terraform"
-  templates:
-    - "terraform.tfvars"
+- name: terraform init
+  description: configura el estado remoto del ambiente y usa los providers incluidos en la imagen
+  workdir: terraform
+  cmd: >-
+    terraform init -input=false
+    -backend-config="storage_account_name=$VEX_AZURE_STATE_ACCOUNT"
+    -backend-config="container_name=$VEX_AZURE_STATE_CONTAINER"
+    -backend-config="key=${var.project_id}/${var.environment}/main.tfstate"
+    -backend-config="use_azuread_auth=true"
 
-- name: "Apply terraform"
-  description: "execute the changes defined in the plan to provision or modify the infrastructure"
-  cmd: "terraform apply plan.out"
-  workdir: "./terraform"
+# Los grupos de recursos y las identidades los creo el bootstrap: llegan por las
+# variables de entorno de la conexion, no por el pipeline.
+- name: terraform plan
+  description: calcula los cambios del cluster
+  workdir: terraform
+  cmd: >-
+    terraform plan -input=false -out=plan.out
+    -var "azure_resource_group_name=$VEX_AZURE_RESOURCE_GROUP"
+    -var "azure_node_resource_group_name=$VEX_BOOTSTRAP_NODE_RESOURCE_GROUP"
+    -var "aks_identity_id=$VEX_BOOTSTRAP_AKS_IDENTITY_ID"
+    -var "kubelet_identity_id=$VEX_AZURE_PULL_IDENTITY_ID"
+    -var "kubelet_client_id=$VEX_AZURE_PULL_CLIENT_ID"
+    -var "kubelet_object_id=$VEX_BOOTSTRAP_PULL_PRINCIPAL_ID"
+    -var "app_environment=${var.environment}"
+    -var "app_project_name=${var.project_name}"
+    -var "app_team_name=${var.project_team}"
+    -var "azure_kubernetes_cluster_vm_size=${var.azure_kubernetes_cluster_vm_size}"
+    -var "azure_kubernetes_cluster_node_count=${var.azure_kubernetes_cluster_node_count}"
 
+- name: terraform apply
+  description: crea o actualiza el cluster de AKS
+  workdir: terraform
+  cmd: terraform apply -input=false -auto-approve plan.out
   outputs:
-    - name: "azure_resource_group_name"
-      description: "Return the name of the resource group created in Azure"
-      probe: azure_resource_group_name\s*=\s*"([^"]+)"
-
-    - name: "azure_kubernetes_cluster_fqdn"
-      description: "Return the FQDN of the AKS cluster to use as base of the ingress_host"
-      probe: azure_kubernetes_cluster_fqdn\s*=\s*"([^"]+)"
-
-    - name: "azure_kubernetes_cluster_name"
-      description: "Return the FQDN of the AKS cluster to use as base of the ingress_host"
-      probe: azure_kubernetes_cluster_name\s*=\s*"([^"]+)"
+    - name: azure_kubernetes_cluster_name
+      description: nombre del cluster de AKS
+      probe: 'azure_kubernetes_cluster_name\s*=\s*"([^"]+)"'
+    - name: azure_kubernetes_cluster_fqdn
+      description: FQDN del cluster de AKS, base del host del ingress
+      probe: 'azure_kubernetes_cluster_fqdn\s*=\s*"([^"]+)"'

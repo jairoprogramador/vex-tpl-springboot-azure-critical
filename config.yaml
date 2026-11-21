@@ -1,0 +1,19 @@
+schema_version: 1
+steps:
+  # El resultado de las pruebas depende del código, no del ambiente ni de la nube.
+  test:
+    rules: [instructions, code]
+    max_age: 720h
+  # Hay un registro de contenedores por ambiente: uno compartido dejaría que la
+  # identidad de un ambiente escribiera lo que despliega otro (ver README).
+  acr:
+    rules: [instructions, variables]
+  # Provisionar la infraestructura no depende del código de la aplicación.
+  supply:
+    rules: [instructions, variables]
+  # Los pasos de nube conservan `variables`: es la regla por la que cambiar de
+  # conexión (otra suscripción u otro grupo de recursos) los vuelve a ejecutar.
+  package:
+    rules: [instructions, code, variables]
+  deploy:
+    rules: [instructions, code, variables]

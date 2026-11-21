@@ -1,8 +1,23 @@
-- name: "Login to Azure CLI"
-  description: "Configure login to Azure CLI"
-  cmd: "az login --service-principal --username $ARM_CLIENT_ID --password $ARM_CLIENT_SECRET --tenant $ARM_TENANT_ID"
+- name: login azure
+  description: espera el token de la CLI e inicia sesion en az
+  cmd: vex-azure-login
 
-- name: "Build and push Docker image to ACR"
-  description: "Build the Docker image directly in ACR with multiple tags: version and latest. This avoids Docker socket permission issues."
-  cmd: "az acr build --registry ${var.azure_container_registry_name} --image ${var.project_name}:${var.project_version} --image ${var.project_name}:${var.project_revision} --image ${var.project_name}:latest --file ${var.step_workdir}/docker/Dockerfile ${var.project_workdir}"
+- name: build en ACR
+  description: construye la imagen en Azure con la etiqueta de la version; solo se sube el codigo fuente
+  cmd: >-
+    az acr build --registry "${var.azure_container_registry_name}"
+    --image "${var.project_name}:${var.project_version}"
+    --file "${var.step_workdir}/docker/Dockerfile" "${var.project_workdir}"
 
+# La etiqueta es mutable: quien pueda escribir en el registro puede moverla. El
+# digest identifica el contenido, y es lo unico que usa el paso deploy.
+- name: digest de la imagen
+  description: lee el digest de la imagen recien construida
+  cmd: >-
+    az acr repository show --name "${var.azure_container_registry_name}"
+    --image "${var.project_name}:${var.project_version}"
+    --query "join('=', ['image_digest', digest])" --output tsv
+  outputs:
+    - name: image_digest
+      description: digest (sha256) de la imagen que se despliega
+      probe: 'image_digest=(sha256:[0-9a-f]{64})'
